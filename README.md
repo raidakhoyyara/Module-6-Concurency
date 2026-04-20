@@ -21,4 +21,4 @@ Response yang saya buat mengikuti struktur HTTP/1.1:
 - **Header**: `Content-Length: {length}`
 - **Blank line + Body**: `\r\n\r\n` sebagai pemisah antara header dan body HTML
 
-Saya menggunakan `stream.write_all(response.as_bytes())` untuk mengirim response sebagai raw bytes ke TCP stream. Yang menarik, server tidak perlu memahami CSS atau JavaScript sama sekali — server hanya mengirim raw HTML, dan browser yang bertanggung jawab untuk parsing dan mengambil resource eksternal seperti Google Fonts.
+Saya menggunakan `stream.write_all(response.as_bytes())` untuk mengirim response sebagai raw bytes ke TCP stream. Yang menarik, server tidak perlu memahami CSS atau JavaScript sama sekali, server hanya mengirim raw HTML, dan browser yang bertanggung jawab untuk parsing dan mengambil resource eksternal seperti Google Fonts.
