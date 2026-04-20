@@ -1,81 +1,47 @@
-use std::{
-    sync::{Arc, Mutex, mpsc},
-    thread,
-};
+#[derive(Debug)]
+pub struct PoolCreationError;
 
-type Job = Box<dyn FnOnce() + Send + 'static>;
-
-pub struct ThreadPool {
-    workers: Vec<Worker>,
-    sender: Option<mpsc::Sender<Job>>,
+impl std::fmt::Display for PoolCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Cannot create ThreadPool with size 0")
+    }
 }
 
 impl ThreadPool {
-    pub fn new(size: usize) -> ThreadPool {
-        assert!(size > 0);
+    pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
+        if size == 0 {
+            return Err(PoolCreationError);
+        }
 
         let (sender, receiver) = mpsc::channel();
         let receiver = Arc::new(Mutex::new(receiver));
-
         let mut workers = Vec::with_capacity(size);
 
         for id in 0..size {
             workers.push(Worker::new(id, Arc::clone(&receiver)));
         }
 
-        ThreadPool {
+        Ok(ThreadPool {
             workers,
             sender: Some(sender),
-        }
-    }
-
-    pub fn execute<F>(&self, f: F)
-    where
-        F: FnOnce() + Send + 'static,
-    {
-        let job = Box::new(f);
-        self.sender.as_ref().unwrap().send(job).unwrap();
+        })
     }
 }
 
-impl Drop for ThreadPool {
-    fn drop(&mut self) {
-        drop(self.sender.take());
+// Penggunaan di main.rs:
+fn main() {
+    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
 
-        for worker in &mut self.workers {
-            println!("Shutting down worker {}", worker.id);
-            if let Some(thread) = worker.thread.take() {
-                thread.join().unwrap();
-            }
-        }
-    }
-}
+    // Dengan build, kita bisa handle error dengan lebih graceful
+    let pool = ThreadPool::build(4).unwrap_or_else(|err| {
+        eprintln!("Failed to create thread pool: {}", err);
+        std::process::exit(1);
+    });
 
-struct Worker {
-    id: usize,
-    thread: Option<thread::JoinHandle<()>>,
-}
-
-impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Job>>>) -> Worker {
-        let thread = thread::spawn(move || loop {
-            let message = receiver.lock().unwrap().recv();
-
-            match message {
-                Ok(job) => {
-                    println!("Worker {id} got a job; executing.");
-                    job();
-                }
-                Err(_) => {
-                    println!("Worker {id} disconnected; shutting down.");
-                    break;
-                }
-            }
+    for stream in listener.incoming() {
+        let stream = stream.unwrap();
+        pool.execute(|| {
+            handle_connection(stream);
         });
-
-        Worker {
-            id,
-            thread: Some(thread),
-        }
     }
 }
