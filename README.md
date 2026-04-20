@@ -55,3 +55,14 @@ Saya juga mengimplementasikan `Drop` trait pada `ThreadPool` untuk graceful shut
 Hasilnya, request `/sleep` dan `/` kini bisa diproses secara bersamaan tanpa saling memblokir.
 
 ---
+## Bonus — Function Improvement: `build` vs `new`
+
+Saya mengganti fungsi `new()` dengan `build()` yang mengembalikan `Result<ThreadPool, PoolCreationError>`. Sebelumnya, `new()` menggunakan `assert!(size > 0)` yang langsung menyebabkan program panic jika kondisi tidak terpenuhi — caller tidak punya kesempatan menangani error.
+
+Dengan `build()`, caller memiliki kontrol penuh: bisa fallback, log error, atau exit secara graceful menggunakan `match` atau `unwrap_or_else`. Saya juga mengimplementasikan `fmt::Display` pada custom error type `PoolCreationError` agar error message bisa ditampilkan dengan baik. Pendekatan ini lebih robust dan selaras dengan filosofi Rust yang membuat error handling eksplisit dan composable.
+
+| Aspek | `new` | `build` |
+|---|---|---|
+| Return type | `ThreadPool` | `Result<ThreadPool, Error>` |
+| Error handling | Panic langsung | Return `Err` ke caller |
+| Kontrol caller | Tidak ada | Penuh |
