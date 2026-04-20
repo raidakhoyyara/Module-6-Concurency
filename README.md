@@ -33,3 +33,12 @@ Saya menambahkan validasi request sehingga server tidak selalu mengembalikan `he
 Saya juga melakukan refactoring karena cabang `if` dan `else` awalnya hampir sama keduanya membaca file, menghitung panjang, memformat response, dan menulis ke stream. Saya mengisolasi hanya dua hal yang berbeda (`status_line` dan `filename`) ke dalam satu ekspresi `if/else` yang mengembalikan tuple. Rust memungkinkan `if/else` digunakan sebagai expression yang mengevaluasi ke sebuah nilai, sehingga logic sisanya cukup ditulis satu kali jadi lebih bersih dan sesuai prinsip DRY.
 
 ---
+
+## Milestone 4 — Simulation of Slow Request
+![Milestone 4 capture](assets/milestone4.png)
+
+Saya menambahkan route `/sleep` yang memanggil `thread::sleep(Duration::from_secs(10))` sebelum mengirim response, untuk mensimulasikan request yang butuh waktu lama seperti query database berat atau pemanggilan external API.
+
+Saat saya membuka dua tab — satu ke `/sleep` dan satu ke `/` — tab kedua sepenuhnya frozen sampai request pertama selesai. Ini terjadi karena server berjalan di satu thread; loop `for stream in listener.incoming()` memproses satu koneksi pada satu waktu secara sekuensial. Selama thread terblokir di `thread::sleep()`, tidak ada koneksi lain yang bisa diproses. Inilah motivasi utama untuk menggunakan concurrency di milestone berikutnya.
+
+---
