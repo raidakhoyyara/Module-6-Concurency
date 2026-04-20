@@ -42,3 +42,16 @@ Saya menambahkan route `/sleep` yang memanggil `thread::sleep(Duration::from_sec
 Saat saya membuka dua tab — satu ke `/sleep` dan satu ke `/` — tab kedua sepenuhnya frozen sampai request pertama selesai. Ini terjadi karena server berjalan di satu thread; loop `for stream in listener.incoming()` memproses satu koneksi pada satu waktu secara sekuensial. Selama thread terblokir di `thread::sleep()`, tidak ada koneksi lain yang bisa diproses. Inilah motivasi utama untuk menggunakan concurrency di milestone berikutnya.
 
 ---
+
+## Milestone 5 — Multithreaded Server using ThreadPool
+![Milestone 5 capture](assets/milestone5.png)
+
+Saya meng-upgrade server ke multithreaded dengan mengimplementasikan `ThreadPool` yang berisi sejumlah worker thread yang di-spawn saat pool diinisialisasi. Daripada spawn thread baru untuk setiap request, pool menggunakan kembali thread yang sudah ada — pendekatan ini lebih aman dan tidak rentan terhadap DoS attack.
+
+Saya menggunakan `mpsc::channel` untuk mengirim job (berupa closure) dari `execute()` ke worker thread yang sedang idle. Untuk berbagi receiving end channel di banyak worker, saya membungkusnya dalam `Arc<Mutex<>>`: `Arc` memungkinkan banyak thread memegang ownership secara bersamaan, sementara `Mutex` memastikan hanya satu worker yang bisa mengambil job pada satu waktu — mencegah race condition.
+
+Saya juga mengimplementasikan `Drop` trait pada `ThreadPool` untuk graceful shutdown: saat pool di-drop, sender di-drop terlebih dahulu sebagai sinyal ke semua worker bahwa tidak ada job baru, lalu setiap worker thread di-join satu per satu agar semua pekerjaan yang sedang berjalan selesai sebelum program exit.
+
+Hasilnya, request `/sleep` dan `/` kini bisa diproses secara bersamaan tanpa saling memblokir.
+
+---
